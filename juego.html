@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ahorcado</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="/imagenes/ahorcado.ico">
+</head>
+<body>
+    <h1>Juego del Ahorcado</h1>
+    <div class="difficulty-buttons">
+        <button id="easy">Fácil</button>
+        <button id="hard">Difícil</button>
+    </div>
+    <div class="container">
+        <canvas id="hangmanCanvas" width="200" height="300"></canvas>
+        <p class="message">Selecciona una dificultad y adivina la palabra antes de quedarte sin intentos.</p>
+        <div class="word" id="word">_ _ _ _</div>
+        <div class="wrong-letters" id="wrong-letters"></div>
+        <input type="text" id="letter-input" maxlength="1" placeholder="Escribe una letra" disabled>
+        <button id="play-again" disabled>Jugar de nuevo</button>
+    </div>
+    <script>
+       const allWords = [
+        "sol", "mar", "luz", "amor", "aire", "paz", "vida", "casa", 
+        "pan", "mesa", "teclado", "servidor", "programacion", "robotica", 
+        "software", "danza", "idioma", "volcan", "glaciar", "mitologia", 
+        "ciclismo", "renacimiento", "civilizacion", "imperio", "exploracion",
+        "luna", "estrella", "rayo", "nube", "piedra", "agua", "flor",
+        "camino", "sombra", "cielo", "viento", "pueblo", "planeta", "fuego",
+        "rivalidad", "cultura", "sabiduría", "paisaje", "camino", "espejo", "aliento",
+        "espejismo", "amistad", "leyenda", "deseo", "orgullo", "secreto", "felicidad",
+        "historia", "innovacion", "aureola", "escalera", "fortaleza",
+        "tren", "silla", "copa", "fruta", "piedra", "puente", "rojo",
+        "lirio", "guitarra", "hermosa", "ocaso", "luz", "granja", "papel",
+        "noche", "luna", "carrera", "invento", "vocal", "calor", "escudo",
+        "danzón", "abismo", "navegante", "gigante", "cuerpo", "vibrante",
+        "espejo", "fantasia", "calle", "puerto", "corazon", "exito", "valiente", 
+        "compas", "mercado", "burbuja", "cielo", "coche", "avion", "desierto",
+        "hoja", "mariposa", "arcoiris", "fantasma", "risa", "globo", "nave",
+        "solitario", "lluvia", "viaje", "lago", "encuentro", "espejo", "roca", "relato",
+        "hoja", "banco", "viento", "cielo", "bajo", "oliva", "cultura", "tierra", "reina",
+        "estrella", "deseo", "reina", "moneda", "misterio", "sabio", "gritar", "heroe",
+        "camisa", "bailar", "rojo", "señal", "guerra", "batalla", "libro", "tulipan",
+        "bajo", "guitarra", "castillo", "bandera", "quinto", "verde", "fiebre",
+        "navegar", "flor", "luz", "bazar", "caracol", "sombra", "alfombra", "paisaje", 
+        "leche", "florero", "zapato", "monja", "piedra", "guerrero", "tulipan", "amigo", 
+        "girar", "noche", "luna", "corona", "viento", "isla", "oasis", "tormenta", "cielo",
+        "firmeza", "dibujo", "espacio", "pintura", "dibujo", "roca", "peine", "cima"
+];
+        const easyWords = allWords.filter(word => word.length >= 2 && word.length <= 4);
+        const hardWords = allWords.filter(word => word.length >= 5 && word.length <= 10);
+
+        let selectedWord = "";
+        let correctLetters = [];
+        let wrongLetters = [];
+        let maxAttempts = 6;
+        let errors = 0;
+
+        const wordElement = document.getElementById('word');
+        const wrongLettersElement = document.getElementById('wrong-letters');
+        const letterInput = document.getElementById('letter-input');
+        const playAgainButton = document.getElementById('play-again');
+        const canvas = document.getElementById('hangmanCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const easyButton = document.getElementById('easy');
+        const hardButton = document.getElementById('hard');
+
+        function drawBase() {
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#ff6f61';
+
+            // Base
+            ctx.beginPath();
+            ctx.moveTo(10, 280);
+            ctx.lineTo(190, 280);
+            ctx.stroke();
+
+            // Poste vertical
+            ctx.beginPath();
+            ctx.moveTo(50, 280);
+            ctx.lineTo(50, 20);
+            ctx.stroke();
+
+            // Poste horizontal
+            ctx.beginPath();
+            ctx.moveTo(50, 20);
+            ctx.lineTo(150, 20);
+            ctx.stroke();
+
+            // Cuerda
+            ctx.beginPath();
+            ctx.moveTo(150, 20);
+            ctx.lineTo(150, 50);
+            ctx.stroke();
+        }
+
+        function drawHangman(errors) {
+            switch (errors) {
+                case 1: 
+                    ctx.beginPath();
+                    ctx.arc(150, 70, 20, 0, Math.PI * 2);
+                    ctx.stroke();
+                    break;
+                case 2:
+                    ctx.beginPath();
+                    ctx.moveTo(150, 90);
+                    ctx.lineTo(150, 170);
+                    ctx.stroke();
+                    break;
+                case 3:
+                    ctx.beginPath();
+                    ctx.moveTo(150, 100);
+                    ctx.lineTo(120, 130);
+                    ctx.stroke();
+                    break;
+                case 4:
+                    ctx.beginPath();
+                    ctx.moveTo(150, 100);
+                    ctx.lineTo(180, 130);
+                    ctx.stroke();
+                    break;
+                case 5:
+                    ctx.beginPath();
+                    ctx.moveTo(150, 170);
+                    ctx.lineTo(120, 210);
+                    ctx.stroke();
+                    break;
+                case 6:
+                    ctx.beginPath();
+                    ctx.moveTo(150, 170);
+                    ctx.lineTo(180, 210);
+                    ctx.stroke();
+                    break;
+            }
+        }
+
+        function displayWord() {
+            wordElement.innerHTML = selectedWord
+                .split('')
+                .map(letter => (correctLetters.includes(letter) ? letter : '_'))
+                .join(' ');
+        }
+
+        function updateWrongLetters() {
+            wrongLettersElement.innerHTML = `Letras incorrectas: ${wrongLetters.join(', ')}`;
+        }
+
+        function checkGameStatus() {
+            if (!wordElement.textContent.includes('_')) {
+                alert(`¡Felicidades! Ganaste. La palabra era: ${selectedWord}`);
+                disableInput();
+            }
+
+            if (errors >= maxAttempts) {
+                alert(`Perdiste. La palabra era: ${selectedWord}`);
+                disableInput();
+            }
+        }
+
+        function resetGame(wordList) {
+            selectedWord = wordList[Math.floor(Math.random() * wordList.length)];
+            correctLetters = [];
+            wrongLetters = [];
+            errors = 0;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBase();
+            displayWord();
+            updateWrongLetters();
+            enableInput();
+        }
+
+        function disableInput() {
+            letterInput.disabled = true;
+            playAgainButton.disabled = false;
+        }
+
+        function enableInput() {
+            letterInput.disabled = false;
+            playAgainButton.disabled = true;
+        }
+
+        letterInput.addEventListener('input', () => {
+            const letter = letterInput.value.toLowerCase();
+            letterInput.value = '';
+
+            if (letter.match(/^[a-z]$/) && !correctLetters.includes(letter) && !wrongLetters.includes(letter)) {
+                if (selectedWord.includes(letter)) {
+                    correctLetters.push(letter);
+                } else {
+                    wrongLetters.push(letter);
+                    errors++;
+                    drawHangman(errors);
+                }
+                displayWord();
+                updateWrongLetters();
+                checkGameStatus();
+            }
+        });
+
+        playAgainButton.addEventListener('click', () => resetGame(selectedWord.length <= 4 ? easyWords : hardWords));
+
+        easyButton.addEventListener('click', () => resetGame(easyWords));
+        hardButton.addEventListener('click', () => resetGame(hardWords));
+
+        drawBase();
+    </script>
+</body>
+</html>
